@@ -38,6 +38,8 @@ class ApiClient {
     return Uri.parse('$base/api$path').replace(queryParameters: query);
   }
 
+  String endpointUrl(String path) => _uri(path).toString();
+
   /// Turns a relative upload path (/uploads/x.jpg) into a full URL.
   String fileUrl(String url) => url.startsWith('http') ? url : '${baseUrl.replaceAll(RegExp(r'/$'), '')}$url';
 
@@ -73,7 +75,7 @@ class ApiClient {
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     http.Response res;
     try {
-      res = await request().timeout(const Duration(seconds: 20));
+      res = await request().timeout(Duration(seconds: 20));
     } on SocketException {
       throw ApiException(0, 'Cannot reach the server at $baseUrl. Check the server address in Settings.');
     } on http.ClientException {

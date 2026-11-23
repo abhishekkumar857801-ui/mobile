@@ -7,6 +7,9 @@ import '../models.dart';
 import '../services/session.dart';
 import '../widgets/common.dart';
 import 'new_task_sheet.dart';
+import 'call_screen.dart';
+import 'meetings_screen.dart';
+import 'project_chat_screen.dart';
 import 'task_detail_screen.dart';
 
 /// One team: its task list and a phone-sized view of the risk dashboard.
@@ -23,6 +26,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Map<String, dynamic>? _dashboard;
   String? _projectFilter;
   String? _error;
+  List<Map<String, dynamic>> _liveCalls = []; // live video meetings in this team
   StreamSubscription<LiveEvent>? _sub;
   Timer? _debounce;
 
@@ -33,9 +37,16 @@ class _TeamScreenState extends State<TeamScreen> {
     super.initState();
     session.subscribeTeam(_teamId);
     _load();
+    _loadCalls();
     _sub = session.events.listen((e) {
+      if (e.name == 'call:started' || e.name == 'call:updated' || e.name == 'call:ended') {
+        _loadCalls();
+        return;
+      }
+      // Ignore chat and call signalling traffic; reload only for task/team changes.
+      if (e.name.startsWith('call:') || e.name.startsWith('chat:') || e.name == 'meeting:changed') return;
       _debounce?.cancel();
-      _debounce = Timer(const Duration(milliseconds: 300), _load);
+      _debounce = Timer(Duration(milliseconds: 300), _load);
     });
   }
 
@@ -44,6 +55,39 @@ class _TeamScreenState extends State<TeamScreen> {
     _sub?.cancel();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _punch(Task t, String status) async {
+    try {
+      await session.api.patch('/tasks/${t.id}', {'status': status});
+      await _load();
+      if (mounted) showSnack(context, '${t.serial} → ${statusLabels[status]}');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
+  }
+
+  Future<void> _loadCalls() async {
+    try {
+      final res = await session.api.get('/teams/$_teamId/calls');
+      if (mounted) {
+        setState(() => _liveCalls = (res['calls'] as List).map((c) => Map<String, dynamic>.from(c as Map)).toList());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _joinLiveCall(Map<String, dynamic> call) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CallScreen(
+          projectId: '${call['projectId']}',
+          projectName: '${call['projectName']}',
+          isManager: widget.team.isManager,
+        ),
+      ),
+    );
+    _loadCalls();
   }
 
   Future<void> _load() async {
@@ -62,6 +106,32 @@ class _TeamScreenState extends State<TeamScreen> {
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  // Creates a single-use invite code (e.g. BIN7K2) and copies it.
+  Future<void> _newInvite() async {
+    try {
+      final res = await session.api.post('/teams/$_teamId/invites', {});
+      final code = res['invite']['code'] as String;
+      try {
+        await Clipboard.setData(ClipboardData(text: code));
+        if (mounted) showSnack(context, 'Invite code copied');
+      } catch (_) {
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Copy invite code'),
+            content: SelectableText(code),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
     }
   }
 
@@ -90,22 +160,23 @@ class _TeamScreenState extends State<TeamScreen> {
         appBar: AppBar(
           title: Text(widget.team.name),
           actions: [
-            IconButton(
-              tooltip: 'Copy join code',
-              icon: const Icon(Icons.person_add_alt),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: widget.team.joinCode));
-                showSnack(context, 'Join code ${widget.team.joinCode} copied');
-              },
-            ),
+            if (widget.team.isManager)
+              IconButton(
+                tooltip: 'New invite code',
+                icon: Icon(Icons.person_add_alt),
+                onPressed: _newInvite,
+              ),
           ],
-          bottom: const TabBar(tabs: [Tab(text: 'Tasks'), Tab(text: 'Risk')]),
+          bottom: TabBar(tabs: [Tab(text: 'Tasks'), Tab(text: 'Risk')]),
         ),
-        floatingActionButton: FloatingActionButton(onPressed: _newTask, tooltip: 'New task', child: const Icon(Icons.add_task)),
+        // Only the owner and managers can create tasks.
+        floatingActionButton: widget.team.isManager
+            ? FloatingActionButton(onPressed: _newTask, tooltip: 'New task', child: Icon(Icons.add_task))
+            : null,
         body: _tasks == null
             ? (_error != null
                 ? EmptyState(icon: Icons.cloud_off, title: 'Could not load team', subtitle: _error)
-                : const Center(child: CircularProgressIndicator()))
+                : Center(child: CircularProgressIndicator()))
             : TabBarView(children: [_tasksTab(), _riskTab()]),
       ),
     );
@@ -119,17 +190,29 @@ class _TeamScreenState extends State<TeamScreen> {
       });
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.only(bottom: 96), children: [
+      child: ListView(padding: EdgeInsets.only(bottom: 96), children: [
+        for (final call in _liveCalls)
+          Card(
+            margin: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            color: Color(0xFFF4EDE0),
+            child: ListTile(
+              leading: Icon(Icons.circle, color: Color(0xFFFF6B5B), size: 14),
+              title: Text('Live meeting · ${call['projectName']}',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF14213D))),
+              subtitle: Text('Started by ${call['startedBy']?['name'] ?? ''} · ${(call['participants'] as List?)?.length ?? 0} in the call',
+                  style: TextStyle(color: Color(0xFF14213D))),
+              trailing: FilledButton(onPressed: () => _joinLiveCall(call), child: Text('Join')),
+            ),
+          ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Row(children: [
-            ChoiceChip(label: const Text('All'), selected: _projectFilter == null, onSelected: (_) => setState(() => _projectFilter = null)),
+            ChoiceChip(label: Text('All'), selected: _projectFilter == null, onSelected: (_) => setState(() => _projectFilter = null)),
             for (final p in _projects)
               Padding(
-                padding: const EdgeInsets.only(left: 8),
+                padding: EdgeInsets.only(left: 8),
                 child: ChoiceChip(
-                  avatar: CircleAvatar(backgroundColor: hexColor(p.color), radius: 5),
                   label: Text(p.name),
                   selected: _projectFilter == p.id,
                   onSelected: (_) => setState(() => _projectFilter = p.id),
@@ -137,7 +220,47 @@ class _TeamScreenState extends State<TeamScreen> {
               ),
           ]),
         ),
-        if (tasks.isEmpty) const EmptyState(icon: Icons.inbox_outlined, title: 'No tasks here yet'),
+        if (_projectFilter != null)
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () {
+                    final project = _projects.firstWhere((p) => p.id == _projectFilter);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ProjectChatScreen(project: project, isManager: widget.team.isManager)),
+                    );
+                  },
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: Text('Chat'),
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () async {
+                    final project = _projects.firstWhere((p) => p.id == _projectFilter);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => MeetingsScreen(project: project, isManager: widget.team.isManager)),
+                    );
+                    _loadCalls();
+                  },
+                  icon: Icon(_liveCalls.any((c) => c['projectId'] == _projectFilter) ? Icons.circle : Icons.videocam_outlined,
+                      color: _liveCalls.any((c) => c['projectId'] == _projectFilter) ? AppColors.danger : null, size: 18),
+                  label: Text('Meetings'),
+                ),
+              ),
+            ]),
+          )
+        else if (_projects.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Text('Tip: pick a project above to open its chat.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          ),
+        if (tasks.isEmpty) EmptyState(icon: Icons.inbox_outlined, title: 'No tasks here yet'),
         for (final t in tasks)
           TaskTile(
             task: t,
@@ -146,6 +269,8 @@ class _TeamScreenState extends State<TeamScreen> {
               await Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailScreen(taskId: t.id)));
               _load();
             },
+            // Owners/managers can punch any ticket; members only their own.
+            onPunch: widget.team.isManager || t.assignee?.id == session.user?.id ? (status) => _punch(t, status) : null,
           ),
       ]),
     );
@@ -162,7 +287,7 @@ class _TeamScreenState extends State<TeamScreen> {
     Widget stat(String label, dynamic v, {bool alert = false}) => Expanded(
           child: Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 12),
               child: Column(children: [
                 Text('$v', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: alert && v != 0 ? AppColors.danger : null)),
                 Text(label, style: TextStyle(fontSize: 11, color: scheme.outline), textAlign: TextAlign.center),
@@ -173,30 +298,30 @@ class _TeamScreenState extends State<TeamScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.all(12), children: [
+      child: ListView(padding: EdgeInsets.all(12), children: [
         Row(children: [
           stat('Open', summary['openTasks']),
           stat('Overdue', summary['overdueTasks'], alert: true),
           stat('Overloaded', summary['overloadedMembers'], alert: true),
           stat('At risk', summary['projectsAtRisk'], alert: true),
         ]),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Text('Team workload', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         for (final m in members)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: EdgeInsets.symmetric(vertical: 6),
             child: Row(children: [
               UserAvatar(AppUser.fromJson(m['user'])),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Expanded(child: Text(m['user']['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
+                    Expanded(child: Text(m['user']['name'], style: TextStyle(fontWeight: FontWeight.w600))),
                     Text('${m['loadPercent']}%  '),
-                    Pill(m['status'], levelColors[m['status']] ?? Colors.grey),
+                    Pill(m['status'], levelColors[m['status']] ?? AppColors.muted),
                   ]),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: LinearProgressIndicator(
@@ -210,34 +335,34 @@ class _TeamScreenState extends State<TeamScreen> {
               ),
             ]),
           ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Text('Project deadline risk', style: Theme.of(context).textTheme.titleMedium),
         for (final p in projects)
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: levelColors[p['riskLevel']] ?? Colors.grey, width: 1.5),
+              side: BorderSide(color: levelColors[p['riskLevel']] ?? AppColors.muted, width: 1.5),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Expanded(child: Text(p['project']['name'], style: const TextStyle(fontWeight: FontWeight.w700))),
-                  Pill(p['riskLevel'] == 'done' ? 'complete' : '${p['riskLevel']} · ${p['riskScore']}', levelColors[p['riskLevel']] ?? Colors.grey),
+                  Expanded(child: Text(p['project']['name'], style: TextStyle(fontWeight: FontWeight.w700))),
+                  Pill(p['riskLevel'] == 'done' ? 'complete' : '${p['riskLevel']} · ${p['riskScore']}', levelColors[p['riskLevel']] ?? AppColors.muted),
                 ]),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 LinearProgressIndicator(value: (p['completion'] as num) / 100, minHeight: 6, borderRadius: BorderRadius.circular(6)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   '${p['completion']}% done · ${(p['daysLeft'] as num) > 0 ? '${p['daysLeft']} days left' : 'deadline passed'} · ${p['remainingHours']}h remaining',
                   style: TextStyle(fontSize: 12, color: scheme.outline),
                 ),
-                for (final r in (p['reasons'] as List)) Text('• $r', style: const TextStyle(fontSize: 12)),
+                for (final r in (p['reasons'] as List)) Text('• $r', style: TextStyle(fontSize: 12)),
               ]),
             ),
           ),
         if (atRisk.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text('Needs attention', style: Theme.of(context).textTheme.titleMedium),
           for (final r in atRisk)
             ListTile(

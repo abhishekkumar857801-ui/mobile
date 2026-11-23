@@ -47,74 +47,74 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
             padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 12, 12, 40),
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
+            decoration: BoxDecoration(
+              color: AppColors.navy,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                const BrandLogo(size: 40, onColor: true),
-                const SizedBox(width: 10),
-                const Text('TeamFlow', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-                const Spacer(),
+                BrandLogo(size: 40, onColor: true),
+                SizedBox(width: 10),
+                Text('TeamFlow', style: TextStyle(color: AppColors.cream, fontSize: 20, fontWeight: FontWeight.w700)),
+                Spacer(),
                 IconButton(
                   tooltip: 'Server settings',
-                  color: Colors.white,
-                  icon: const Icon(Icons.dns_outlined),
+                  color: AppColors.cream,
+                  icon: Icon(Icons.dns_outlined),
                   onPressed: () => showServerDialog(context),
                 ),
               ]),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               Text(
-                _register ? 'Join your team\nin seconds.' : 'Your tasks,\nalways in sync.',
-                style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w700, height: 1.15, letterSpacing: -0.5),
+                _register ? 'Join your team\nin seconds.' : 'Your team\'s work,\nthe same everywhere.',
+                style: TextStyle(color: AppColors.cream, fontSize: 30, fontWeight: FontWeight.w700, height: 1.15, letterSpacing: -0.5),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(
-                'Same account as the TeamFlow web app. Updates appear on every device instantly.',
-                style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 14),
+                'Punch your tickets forward here; your manager sees it on the web the same second.',
+                style: TextStyle(color: Color(0xE6F4EDE0), fontSize: 14),
               ),
             ]),
           ),
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Form(
               key: _form,
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text(_register ? 'Create your account' : 'Welcome back', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 if (_error != null) ...[
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(12)),
                     child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer)),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                 ],
                 if (_register) ...[
                   TextFormField(
                     controller: _name,
-                    decoration: const InputDecoration(labelText: 'Full name', prefixIcon: Icon(Icons.person_outline)),
+                    decoration: InputDecoration(labelText: 'Full name', prefixIcon: Icon(Icons.person_outline)),
                     textInputAction: TextInputAction.next,
                     validator: (v) => (v ?? '').trim().length < 2 ? 'Enter your name' : null,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                 ],
                 TextFormField(
                   controller: _email,
-                  decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
+                  decoration: InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
                   keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.email],
+                  autofillHints: [AutofillHints.email],
                   textInputAction: TextInputAction.next,
                   validator: (v) => (v ?? '').contains('@') ? null : 'Enter a valid email',
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 TextFormField(
                   controller: _password,
                   obscureText: _hide,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    prefixIcon: Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                       onPressed: () => setState(() => _hide = !_hide),
@@ -123,12 +123,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   onFieldSubmitted: (_) => _submit(),
                   validator: (v) => (v ?? '').length < (_register ? 6 : 1) ? (_register ? 'At least 6 characters' : 'Enter your password') : null,
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 FilledButton(
                   onPressed: _busy ? null : _submit,
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                  style: FilledButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 16)),
                   child: _busy
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onPrimary))
                       : Text(_register ? 'Create account' : 'Sign in'),
                 ),
                 TextButton(

@@ -8,15 +8,17 @@ class AppUser {
   final String name;
   final String email;
   final String avatarColor;
+  final String avatarUrl; // profile photo path on the server ('' = initials)
   final double weeklyCapacity;
 
-  AppUser({required this.id, required this.name, this.email = '', this.avatarColor = '#6366f1', this.weeklyCapacity = 20});
+  AppUser({required this.id, required this.name, this.email = '', this.avatarColor = '#14213d', this.avatarUrl = '', this.weeklyCapacity = 20});
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
         id: j['_id'].toString(),
         name: j['name'] ?? '',
         email: j['email'] ?? '',
-        avatarColor: j['avatarColor'] ?? '#6366f1',
+        avatarColor: j['avatarColor'] ?? '#14213d',
+        avatarUrl: j['avatarUrl'] ?? '',
         weeklyCapacity: _num(j['weeklyCapacity'], 20),
       );
 
@@ -37,11 +39,10 @@ class Team {
   final String id;
   final String name;
   final String description;
-  final String joinCode;
   final String myRole;
   final List<TeamMember> members;
 
-  Team({required this.id, required this.name, required this.description, required this.joinCode, required this.myRole, required this.members});
+  Team({required this.id, required this.name, required this.description, required this.myRole, required this.members});
 
   bool get isManager => myRole == 'owner' || myRole == 'manager';
 
@@ -49,7 +50,6 @@ class Team {
         id: j['_id'].toString(),
         name: j['name'] ?? '',
         description: j['description'] ?? '',
-        joinCode: j['joinCode'] ?? '',
         myRole: j['myRole'] ?? 'member',
         members: ((j['members'] as List?) ?? [])
             .where((m) => m['user'] is Map)
@@ -66,12 +66,12 @@ class Project {
   final int taskCount;
   final int doneCount;
 
-  Project({required this.id, required this.name, this.color = '#6366f1', this.deadline, this.taskCount = 0, this.doneCount = 0});
+  Project({required this.id, required this.name, this.color = '#14213d', this.deadline, this.taskCount = 0, this.doneCount = 0});
 
   factory Project.fromJson(Map<String, dynamic> j) => Project(
         id: j['_id'].toString(),
         name: j['name'] ?? '',
-        color: j['color'] ?? '#6366f1',
+        color: j['color'] ?? '#14213d',
         deadline: _date(j['deadline']),
         taskCount: (j['taskCount'] ?? 0) as int,
         doneCount: (j['doneCount'] ?? 0) as int,
@@ -99,6 +99,7 @@ const taskPriorities = ['low', 'medium', 'high', 'critical'];
 
 class Task {
   final String id;
+  final int number; // permanent serial, shown as TF-0042
   final String teamId;
   final String teamName;
   final Project? project;
@@ -114,6 +115,7 @@ class Task {
 
   Task({
     required this.id,
+    this.number = 0,
     required this.teamId,
     this.teamName = '',
     this.project,
@@ -129,12 +131,14 @@ class Task {
   });
 
   bool get isDone => status == 'done';
+  String get serial => number > 0 ? 'TF-${number.toString().padLeft(4, '0')}' : 'TF-····';
   bool get isOverdue => !isDone && dueDate != null && dueDate!.isBefore(DateTime.now());
 
   factory Task.fromJson(Map<String, dynamic> j) {
     final team = j['team'];
     return Task(
       id: j['_id'].toString(),
+      number: (j['number'] as num?)?.toInt() ?? 0,
       teamId: team is Map ? team['_id'].toString() : team.toString(),
       teamName: team is Map ? (team['name'] ?? '') : '',
       project: Project.maybe(j['project']),

@@ -54,52 +54,52 @@ class _NewTaskSheetState extends State<NewTaskSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         child: Form(
           key: _form,
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('New task', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             TextFormField(
               controller: _title,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'What needs to be done?'),
+              decoration: InputDecoration(labelText: 'What needs to be done?'),
               validator: (v) => (v ?? '').trim().length < 2 ? 'Enter a title' : null,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _project,
-              decoration: const InputDecoration(labelText: 'Project'),
+              decoration: InputDecoration(labelText: 'Project'),
               items: [for (final p in widget.projects) DropdownMenuItem(value: p.id, child: Text(p.name))],
               onChanged: (v) => setState(() => _project = v!),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             DropdownButtonFormField<String?>(
               initialValue: _assignee,
-              decoration: const InputDecoration(labelText: 'Assignee'),
+              decoration: InputDecoration(labelText: 'Assignee'),
               items: [
-                if (widget.team.isManager) const DropdownMenuItem(value: null, child: Text('Unassigned')),
+                if (widget.team.isManager) DropdownMenuItem(value: null, child: Text('Unassigned')),
                 for (final m in people) DropdownMenuItem(value: m.user.id, child: Text(m.user.name)),
               ],
               onChanged: (v) => setState(() => _assignee = v),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _priority,
-                  decoration: const InputDecoration(labelText: 'Priority'),
+                  decoration: InputDecoration(labelText: 'Priority'),
                   items: [for (final p in taskPriorities) DropdownMenuItem(value: p, child: Text(p))],
                   onChanged: (v) => setState(() => _priority = v!),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: TextFormField(
                   controller: _estimate,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Estimate (h)'),
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: 'Estimate (h)'),
                   validator: (v) {
                     final n = double.tryParse(v ?? '');
                     return n == null || n < 0.25 || n > 200 ? '0.25–200' : null;
@@ -107,24 +107,24 @@ class _NewTaskSheetState extends State<NewTaskSheet> {
                 ),
               ),
             ]),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             OutlinedButton.icon(
-              icon: const Icon(Icons.event),
+              icon: Icon(Icons.event),
               label: Text(_due == null ? 'Set due date' : 'Due ${DateFormat('EEE, d MMM').format(_due!)}'),
               onPressed: () async {
                 final d = await showDatePicker(
                   context: context,
                   initialDate: DateTime.now(),
-                  firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                  lastDate: DateTime.now().add(const Duration(days: 730)),
+                  firstDate: DateTime.now().subtract(Duration(days: 1)),
+                  lastDate: DateTime.now().add(Duration(days: 730)),
                 );
                 if (d != null) setState(() => _due = d);
               },
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             FilledButton(
               onPressed: _busy ? null : _save,
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              style: FilledButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 14)),
               child: Text(_busy ? 'Saving…' : 'Create task'),
             ),
           ]),

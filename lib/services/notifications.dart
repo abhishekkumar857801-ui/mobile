@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Shows a phone notification when the server pushes "you were assigned a task".
+/// Shows local notifications for task and meeting updates.
 class Notifications {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
@@ -11,7 +11,7 @@ class Notifications {
     if (kIsWeb) return;
     try {
       await _plugin.initialize(
-        const InitializationSettings(
+        InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
           iOS: DarwinInitializationSettings(),
         ),
@@ -25,22 +25,28 @@ class Notifications {
     }
   }
 
-  static Future<void> show(String title, String body) async {
-    if (!_ready) return;
-    await _plugin.show(
-      _id++,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'tasks',
-          'Task updates',
-          channelDescription: 'New and reassigned tasks',
-          importance: Importance.high,
-          priority: Priority.high,
+  static Future<bool> show(String title, String body, {bool meeting = false}) async {
+    if (!_ready) return false;
+    try {
+      await _plugin.show(
+        _id++,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            meeting ? 'meetings' : 'tasks',
+            meeting ? 'Meeting updates' : 'Task updates',
+            channelDescription: meeting ? 'Newly scheduled meetings' : 'New and reassigned tasks',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-    );
+      );
+      return true;
+    } catch (error) {
+      debugPrint('Could not show notification: $error');
+      return false;
+    }
   }
 }

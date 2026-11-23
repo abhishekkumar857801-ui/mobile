@@ -21,13 +21,13 @@ class _LockScreenState extends State<LockScreen> {
       body: Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.fingerprint, size: 72, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text('TeamFlow is locked', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text('Hi ${session.user?.name ?? ''}, unlock to continue'),
-          const SizedBox(height: 24),
-          FilledButton.icon(onPressed: session.unlock, icon: const Icon(Icons.lock_open), label: const Text('Unlock')),
-          TextButton(onPressed: session.logout, child: const Text('Sign in with password instead')),
+          SizedBox(height: 24),
+          FilledButton.icon(onPressed: session.unlock, icon: Icon(Icons.lock_open), label: Text('Unlock')),
+          TextButton(onPressed: session.logout, child: Text('Sign in with password instead')),
         ]),
       ),
     );

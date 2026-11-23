@@ -46,10 +46,10 @@ class _TeamsScreenState extends State<TeamsScreen> {
           autofocus: true,
           textCapitalization: create ? TextCapitalization.words : TextCapitalization.characters,
           maxLength: create ? 80 : 6,
-          decoration: InputDecoration(labelText: create ? 'Team name' : '6-character join code'),
+          decoration: InputDecoration(labelText: create ? 'Team name' : 'Invite code (e.g. BIN7K2)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(create ? 'Create' : 'Join')),
         ],
       ),
@@ -72,50 +72,50 @@ class _TeamsScreenState extends State<TeamsScreen> {
   Widget build(BuildContext context) {
     final teams = _teams;
     return Scaffold(
-      appBar: AppBar(title: const Text('Teams'), actions: [
-        IconButton(tooltip: 'Join with code', icon: const Icon(Icons.qr_code_2), onPressed: () => _joinOrCreate(create: false)),
+      appBar: AppBar(title: Text('Teams'), actions: [
+        IconButton(tooltip: 'Join with code', icon: Icon(Icons.qr_code_2), onPressed: () => _joinOrCreate(create: false)),
       ]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _joinOrCreate(create: true),
-        icon: const Icon(Icons.add),
-        label: const Text('New team'),
+        icon: Icon(Icons.add),
+        label: Text('New team'),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: teams == null
             ? ListView(children: [
-                const SizedBox(height: 120),
+                SizedBox(height: 120),
                 _error != null
                     ? EmptyState(icon: Icons.cloud_off, title: 'Could not load teams', subtitle: _error)
-                    : const Center(child: CircularProgressIndicator()),
+                    : Center(child: CircularProgressIndicator()),
               ])
             : teams.isEmpty
                 ? ListView(children: [
-                    const SizedBox(height: 80),
-                    const EmptyState(icon: Icons.groups_outlined, title: 'No teams yet', subtitle: 'Create a team or join one with a code from your manager.'),
+                    SizedBox(height: 80),
+                    EmptyState(icon: Icons.groups_outlined, title: 'No teams yet', subtitle: 'Create a team or join one with a code from your manager.'),
                     Center(
                       child: OutlinedButton.icon(
                         onPressed: () => _joinOrCreate(create: false),
-                        icon: const Icon(Icons.login),
-                        label: const Text('Join with code'),
+                        icon: Icon(Icons.login),
+                        label: Text('Join with code'),
                       ),
                     ),
                   ])
                 : ListView(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: EdgeInsets.only(bottom: 96),
                     children: [
                       for (final t in teams)
                         Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            title: Text(t.name, style: TextStyle(fontWeight: FontWeight.w700)),
                             subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 8),
+                              padding: EdgeInsets.only(top: 8),
                               child: Row(children: [
                                 for (final m in t.members.take(5))
-                                  Padding(padding: const EdgeInsets.only(right: 4), child: UserAvatar(m.user, radius: 12)),
-                                const SizedBox(width: 4),
+                                  Padding(padding: EdgeInsets.only(right: 4), child: UserAvatar(m.user, radius: 12)),
+                                SizedBox(width: 4),
                                 Text('${t.members.length} members'),
                               ]),
                             ),

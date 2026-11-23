@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -157,11 +158,29 @@ class Session extends ChangeNotifier {
       live = false;
       notifyListeners();
     });
-    for (final name in ['task:created', 'task:updated', 'task:deleted', 'tasks:refresh', 'project:changed', 'team:updated', 'activity:new']) {
+    for (final name in ['task:created', 'task:updated', 'task:deleted', 'tasks:refresh', 'project:changed', 'team:updated', 'activity:new', 'chat:message', 'chat:deleted',
+        // Project meetings + built-in video calls
+        'meeting:changed', 'call:started', 'call:updated', 'call:ended',
+        'call:peer-joined', 'call:peer-left', 'call:peer-media', 'call:signal']) {
       socket.on(name, (data) => _events.add(LiveEvent(name, data)));
     }
-    socket.on('notify', (data) {
-      if (data is Map) Notifications.show('${data['title']}', '${data['body']}');
+    final shownMeetings = <String>{};
+    socket.on('notify', (data) async {
+      if (data is Map && data['kind'] == 'scheduled-meeting' && data['meetingId'] is String) {
+        final id = data['meetingId'] as String;
+        if (shownMeetings.add(id)) {
+          final startsAt = DateTime.tryParse('${data['startsAt']}')?.toLocal();
+          final when = startsAt == null ? '' : ' · ${DateFormat.yMMMd().add_jm().format(startsAt)}';
+          final shown = await Notifications.show('${data['title']}', '${data['body']}$when', meeting: true);
+          if (shown) {
+            socket.emit('meeting:alert-seen', id);
+          } else {
+            shownMeetings.remove(id);
+          }
+        }
+      } else if (data is Map) {
+        await Notifications.show('${data['title']}', '${data['body']}');
+      }
       _events.add(LiveEvent('notify', data));
     });
     socket.connect();
@@ -169,6 +188,29 @@ class Session extends ChangeNotifier {
   }
 
   void subscribeTeam(String teamId) => _socket?.emit('team:subscribe', teamId);
+
+  /// This device's connection id (identifies us inside a video call).
+  String? get socketId => _socket?.id;
+
+  /// Fire-and-forget real-time message (e.g. WebRTC signalling).
+  void emit(String event, Object? data) => _socket?.emit(event, data);
+
+  /// Real-time request that waits for the server's reply: { ok, error, ... }.
+  Future<Map<String, dynamic>> emitAck(String event, Map<String, dynamic> data) {
+    final socket = _socket;
+    if (socket == null || !socket.connected) {
+      return Future.value({'ok': false, 'error': 'Not connected to the server'});
+    }
+    final done = Completer<Map<String, dynamic>>();
+    socket.emitWithAck(event, data, ack: (res) {
+      if (done.isCompleted) return;
+      done.complete(res is Map ? Map<String, dynamic>.from(res) : {'ok': false, 'error': 'No response'});
+    });
+    return done.future.timeout(
+      Duration(seconds: 10),
+      onTimeout: () => {'ok': false, 'error': 'The server did not respond'},
+    );
+  }
 
   @override
   void dispose() {

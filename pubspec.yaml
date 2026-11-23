@@ -42,6 +42,8 @@ dependencies:
   flutter_local_notifications: ^19.5.0
   intl: ^0.20.3
   http_parser: ^4.1.2
+  flutter_webrtc: ^1.6.3
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +69,37 @@ flutter:
 
   assets:
     - assets/icon/icon.png
+
+  # Bus Ticket identity: Chivo for UI text, Chivo Mono for serials and figures.
+  fonts:
+    - family: Figtree
+      fonts:
+        - asset: assets/fonts/Figtree-400.ttf
+          weight: 400
+        - asset: assets/fonts/Figtree-500.ttf
+          weight: 500
+        - asset: assets/fonts/Figtree-600.ttf
+          weight: 600
+        - asset: assets/fonts/Figtree-700.ttf
+          weight: 700
+        - asset: assets/fonts/Figtree-800.ttf
+          weight: 800
+    - family: Chivo
+      fonts:
+        - asset: assets/fonts/Chivo-400.ttf
+          weight: 400
+        - asset: assets/fonts/Chivo-600.ttf
+          weight: 600
+        - asset: assets/fonts/Chivo-700.ttf
+          weight: 700
+        - asset: assets/fonts/Chivo-800.ttf
+          weight: 800
+    - family: ChivoMono
+      fonts:
+        - asset: assets/fonts/ChivoMono-500.ttf
+          weight: 500
+        - asset: assets/fonts/ChivoMono-700.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

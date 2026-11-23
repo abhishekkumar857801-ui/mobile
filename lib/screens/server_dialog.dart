@@ -10,22 +10,22 @@ Future<void> showServerDialog(BuildContext context) async {
   final saved = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Server address'),
+      title: Text('Server address'),
       content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         TextField(
           controller: ctrl,
           keyboardType: TextInputType.url,
-          decoration: const InputDecoration(hintText: 'http://192.168.1.10:4000'),
+          decoration: InputDecoration(hintText: 'http://192.168.1.10:4000'),
         ),
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: 8),
+        Text(
           'Emulator: http://10.0.2.2:4000\nPhone on same Wi-Fi: http://<laptop IP>:4000\nDeployed: https://your-api.onrender.com',
           style: TextStyle(fontSize: 12),
         ),
       ]),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Save')),
       ],
     ),
   );

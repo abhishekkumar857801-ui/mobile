@@ -29,7 +29,7 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
     _sub = session.events.listen((e) {
       if (e.name.startsWith('task') || e.name == 'notify') {
         _debounce?.cancel();
-        _debounce = Timer(const Duration(milliseconds: 250), _load);
+        _debounce = Timer(Duration(milliseconds: 250), _load);
       }
     });
   }
@@ -58,7 +58,7 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
     try {
       await session.api.patch('/tasks/${t.id}', {'status': status});
       await _load();
-      if (mounted) showSnack(context, '"${t.title}" → ${statusLabels[status]}');
+      if (mounted) showSnack(context, '${t.serial} → ${statusLabels[status]}');
     } catch (e) {
       if (mounted) showSnack(context, e.toString());
     }
@@ -74,15 +74,15 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
     final tasks = _tasks;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My tasks'),
+        title: Text('My tasks'),
         actions: [
           ListenableBuilder(
             listenable: session,
             builder: (context, _) => Padding(
-              padding: const EdgeInsets.only(right: 4),
+              padding: EdgeInsets.only(right: 4),
               child: Tooltip(
                 message: session.live ? 'Live sync on' : 'Offline: pull to refresh',
-                child: Icon(Icons.circle, size: 10, color: session.live ? AppColors.success : AppColors.muted),
+                child: Icon(Icons.circle, size: 10, color: session.live ? AppColors.coral : AppColors.cream.withValues(alpha: .5)),
               ),
             ),
           ),
@@ -97,11 +97,11 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
         onRefresh: _load,
         child: tasks == null
             ? ListView(children: [
-                const SizedBox(height: 120),
+                SizedBox(height: 120),
                 if (_error != null)
                   EmptyState(icon: Icons.cloud_off, title: 'Could not load tasks', subtitle: _error)
                 else
-                  const Center(child: CircularProgressIndicator()),
+                  Center(child: CircularProgressIndicator()),
               ])
             : _buildList(tasks),
       ),
@@ -111,7 +111,7 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
   Widget _buildList(List<Task> tasks) {
     final now = DateTime.now();
     final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
-    final endOfWeek = endOfToday.add(const Duration(days: 7));
+    final endOfWeek = endOfToday.add(Duration(days: 7));
     final open = tasks.where((t) => !t.isDone).toList()
       ..sort((a, b) => (a.dueDate ?? DateTime(9999)).compareTo(b.dueDate ?? DateTime(9999)));
 
@@ -124,23 +124,24 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
     ].where((g) => g.$2.isNotEmpty).toList();
 
     if (groups.isEmpty) {
-      return ListView(children: const [
-        SizedBox(height: 100),
+      return ListView(children: [
+        _SummaryCard(open: 0, overdue: 0, done: tasks.length),
+        SizedBox(height: 24),
         EmptyState(icon: Icons.celebration_outlined, title: 'All caught up!', subtitle: 'No open tasks assigned to you.'),
       ]);
     }
 
     final overdue = open.where((t) => t.isOverdue).length;
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(bottom: 24),
       children: [
         _SummaryCard(open: open.length, overdue: overdue, done: tasks.length - open.length),
         for (final (label, items) in groups) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
             child: Text(
-              '$label (${items.length})',
-              style: TextStyle(fontWeight: FontWeight.w700, color: label == 'Overdue' ? AppColors.danger : AppColors.text),
+              '$label · ${items.length}',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: label == 'Overdue' ? AppColors.danger : AppColors.text),
             ),
           ),
           for (final t in items)
@@ -148,21 +149,21 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
               key: ValueKey(t.id),
               direction: t.isDone ? DismissDirection.none : DismissDirection.startToEnd,
               background: Container(
-                color: AppColors.success,
+                color: AppColors.strong,
                 alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 24),
-                child: const Row(children: [Icon(Icons.check, color: Colors.white), SizedBox(width: 8), Text('Done', style: TextStyle(color: Colors.white))]),
+                padding: EdgeInsets.only(left: 24),
+                child: Row(children: [Icon(Icons.check, color: AppColors.onStrong), SizedBox(width: 8), Text('Done', style: TextStyle(color: AppColors.onStrong))]),
               ),
               confirmDismiss: (_) async {
                 await _quickStatus(t, 'done');
                 return false; // list reloads from the server instead
               },
-              child: TaskTile(task: t, onTap: () => _open(t)),
+              child: TaskTile(task: t, onTap: () => _open(t), onPunch: (status) => _quickStatus(t, status)),
             ),
         ],
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(16),
-          child: Text('Tip: swipe a task right to mark it done.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          child: Text('Tip: swipe a ticket right to punch it Done.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.muted)),
         ),
       ],
     );
@@ -175,71 +176,54 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = open + done;
-    final pct = total == 0 ? 0.0 : done / total;
     final hour = DateTime.now().hour;
     final hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-    Widget stat(String label, int v, IconData icon, Color color) => Expanded(
+    final name = session.user?.name.split(' ').first ?? '';
+    final line = overdue > 0
+        ? 'Review overdue tasks first.'
+        : open == 0
+            ? 'You’re all caught up.'
+            : 'Your tasks are on track.';
+    Widget cell(String label, int value, {bool hot = false, bool first = false}) => Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-            child: Column(children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(height: 2),
-              Text('$v', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text)),
-              Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            decoration: BoxDecoration(
+              border: first ? null : Border(left: BorderSide(color: AppColors.border, width: 1.5)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+              SizedBox(height: 2),
+              Text('$value',
+                  style: TextStyle(fontFamily: monoFont, fontSize: 22, fontWeight: FontWeight.w700, color: hot ? AppColors.danger : AppColors.text)),
             ]),
           ),
         );
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8))],
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: AppColors.navy, borderRadius: BorderRadius.circular(16)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name.isEmpty ? hello : '$hello, $name', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2, color: AppColors.cream)),
+          SizedBox(height: 4),
+          Text(line, style: TextStyle(color: AppColors.navyInk, fontSize: 14.5)),
+          SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: IntrinsicHeight(
+              child: Row(children: [
+                cell('Open', open, first: true),
+                cell('Late', overdue, hot: overdue > 0),
+                cell('Done', done),
+              ]),
+            ),
+          ),
+        ]),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('$hello,', style: const TextStyle(color: AppColors.yellow, fontWeight: FontWeight.w600)),
-              Text(
-                session.user?.name.split(' ').first ?? '',
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                overdue > 0 ? '$overdue task(s) overdue.' : 'You\'re on track today.',
-                style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 13),
-              ),
-            ]),
-          ),
-          SizedBox(
-            width: 64,
-            height: 64,
-            child: Stack(alignment: Alignment.center, children: [
-              CircularProgressIndicator(
-                value: pct,
-                strokeWidth: 6,
-                strokeCap: StrokeCap.round,
-                color: AppColors.yellow,
-                backgroundColor: Colors.white24,
-                constraints: const BoxConstraints.tightFor(width: 64, height: 64),
-              ),
-              Text('${(pct * 100).round()}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-            ]),
-          ),
-        ]),
-        const SizedBox(height: 14),
-        Row(children: [
-          stat('Open', open, Icons.inbox_rounded, AppColors.primary),
-          const SizedBox(width: 8),
-          stat('Overdue', overdue, Icons.local_fire_department_rounded, AppColors.orange),
-          const SizedBox(width: 8),
-          stat('Done', done, Icons.check_circle_rounded, AppColors.success),
-        ]),
-      ]),
     );
   }
 }
